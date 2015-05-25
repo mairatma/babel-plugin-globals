@@ -196,11 +196,12 @@ module.exports = {
   }
 };
 
+var transformer = globalsPlugin(babel);
 function getBabelOptions(filename) {
   return {
     _globalName: 'myGlobal',
     blacklist: 'es6.modules',
     filename: filename,
-    plugins: globalsPlugin(babel)
+    plugins: [transformer]
   };
 }

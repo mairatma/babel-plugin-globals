@@ -108,6 +108,9 @@ module.exports = function(babel) {
      * @param {Program} node
      */
     Program: function(node) {
+      createdGlobals = {};
+      filenameNoExtCache = null;
+
       var contents = node.body;
       node.body = [t.expressionStatement(t.callExpression(
         t.memberExpression(
