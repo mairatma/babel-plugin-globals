@@ -18,6 +18,18 @@ module.exports = function(babel) {
   }
 
   /**
+   * Assigns the given declaration to the appropriate global variable.
+   * @param {!Object} options
+   * @param {!Array} nodes
+   * @param {!Declaration} declaration
+   */
+  function assignDeclarationToGlobal(options, nodes, declaration) {
+    var filenameNoExt = getFilenameNoExt(options.filename);
+    var id = getGlobalIdentifier(options, filenameNoExt, declaration.id.name);
+    assignToGlobal(id, nodes, declaration.id);
+  }
+
+  /**
    * Assigns the given expression to a global with the given id.
    * @param {string} id
    * @param {!Array} nodes
@@ -138,7 +150,7 @@ module.exports = function(babel) {
 
     /**
      * Replaces default export declarations with assignments to global variables.
-     * @param {ExportDeclaration} node
+     * @param {ExportDefaultDeclaration} node
      */
     ExportDefaultDeclaration: function(node) {
       var replacements = [];
@@ -149,25 +161,19 @@ module.exports = function(babel) {
 
     /**
      * Replaces named export declarations with assignments to global variables.
-     * @param {ExportDeclaration} node
+     * @param {ExportNamedDeclaration} node
      */
     ExportNamedDeclaration: function(node) {
-      var self = this;
-      var filenameNoExt = getFilenameNoExt(self.state.opts.filename);
       var replacements = [];
       if (node.declaration) {
+        replacements.push(node.declaration);
         if (t.isVariableDeclaration(node.declaration)) {
-          replacements.push(node.declaration);
-          node.declaration.declarations.forEach(function(varDeclaration) {
-            var id = getGlobalIdentifier(self.state.opts, filenameNoExt, varDeclaration.id.name);
-            assignToGlobal(id, replacements, varDeclaration.id);
-          });
+          node.declaration.declarations.forEach(assignDeclarationToGlobal.bind(null, this.state.opts, replacements));
         } else {
-          replacements.push(node.declaration);
-          var id = getGlobalIdentifier(this.state.opts, filenameNoExt, node.declaration.id.name);
-          assignToGlobal(id, replacements, node.declaration.id);
+          assignDeclarationToGlobal(this.state.opts, replacements, node.declaration);
         }
       } else {
+        var self = this;
         node.specifiers.forEach(function(specifier) {
           var idToAssign = specifier.exported;
           if (node.source) {
@@ -175,6 +181,7 @@ module.exports = function(babel) {
             idToAssign = getGlobalIdentifier(self.state.opts, node.source.value, specifierName);
           }
 
+          var filenameNoExt = getFilenameNoExt(self.state.opts.filename);
           var id = getGlobalIdentifier(self.state.opts, filenameNoExt, specifier.exported.name);
           assignToGlobal(id, replacements, idToAssign);
         });
