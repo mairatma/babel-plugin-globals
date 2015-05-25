@@ -1,0 +1,36 @@
+{
+  "name": "babel-plugin-globals",
+  "version": "0.1.0",
+  "description": "A babel plugin that exposes ES6 modules to global variables.",
+  "license": "MIT",
+  "repository": "mairatma/babel-plugin-globals",
+  "author": {
+    "name": "Maira Bello",
+    "email": "maira.araujo@liferay.com"
+  },
+  "engines": {
+    "node": ">=0.12.0"
+  },
+  "main": "index.js",
+  "files": [
+    "index.js"
+  ],
+  "scripts": {
+    "lint": "jshint test/test.js index.js",
+    "test": "nodeunit test/test.js"
+  },
+  "keywords": [
+    "babel",
+    "es6",
+    "globals",
+    "module",
+    "plugin"
+  ],
+  "dependencies": {
+    "babel-core": "^5.4.7"
+  },
+  "devDependencies": {
+    "jshint": "^2.7.0",
+    "nodeunit": "^0.9.1"
+  }
+}
