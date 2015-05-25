@@ -180,6 +180,19 @@ module.exports = {
     var expectedResult = '"use strict";\n\n(function () {}).call(this);';
     assert.strictEqual(expectedResult, result.code);
     test.done();
+  },
+
+  testMultipleExports: function(test) {
+    var babelOptions = getBabelOptions(path.resolve('foo/bar.js'));
+    var result = babel.transform('export default foo; export {bar};', babelOptions);
+
+    var expectedResult = '"use strict";\n\n(function () {\n' +
+      '  this.myGlobal.bar = foo;\n' +
+      '  this.myGlobalNamed.bar = {};\n' +
+      '  this.myGlobalNamed.bar.bar = bar;\n' +
+      '}).call(this);';
+    assert.strictEqual(expectedResult, result.code);
+    test.done();
   }
 };
 

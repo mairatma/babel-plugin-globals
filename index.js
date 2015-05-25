@@ -69,14 +69,14 @@ module.exports = function(babel) {
    * Gets the global identifier for the given information.
    * @param {!Object} options Options object passed to babel.
    * @param {string} filePath The path of the module.
-   * @param {string=} name The name of the variable being imported or exported from
+   * @param {?string} name The name of the variable being imported or exported from
    *   the module.
-   * @param {boolean} isWildcard If the import or export declaration is using a wildcard.
+   * @param {boolean=} opt_isWildcard If the import or export declaration is using a wildcard.
    * @return {!Specifier}
    */
-  function getGlobalIdentifier(options, filePath, name, isWildcard) {
+  function getGlobalIdentifier(options, filePath, name, opt_isWildcard) {
     var globalName = options._globalName;
-    if (name || isWildcard) {
+    if (name || opt_isWildcard) {
       globalName += 'Named';
     }
 
