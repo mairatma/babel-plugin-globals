@@ -1,6 +1,6 @@
 {
   "name": "babel-plugin-globals",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "A babel plugin that exposes ES6 modules to global variables.",
   "license": "MIT",
   "repository": "mairatma/babel-plugin-globals",
