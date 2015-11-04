@@ -72,7 +72,13 @@ module.exports = function(babel) {
   function getFilenameNoExt(filename) {
     if (!filenameNoExtCache) {
       assertFilenameRequired(filename);
-      filenameNoExtCache = filename.substr(0, filename.length - 3);
+
+      var extension = '.js';
+      filenameNoExtCache = filename;
+      do {
+        filenameNoExtCache = path.basename(filenameNoExtCache, extension);
+        extension = path.extname(filenameNoExtCache);
+      } while (extension !== '');
     }
     return filenameNoExtCache;
   }

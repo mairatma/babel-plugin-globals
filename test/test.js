@@ -193,6 +193,18 @@ module.exports = {
       '}).call(this);';
     assert.strictEqual(expectedResult, result.code);
     test.done();
+  },
+
+  testExportWithMultipleExtensionsFilename: function(test) {
+    var babelOptions = getBabelOptions(path.resolve('foo/bar.soy.js'));
+    var result = babel.transform('export default foo', babelOptions);
+
+    var expectedResult = '"use strict";\n\n(function () {\n' +
+      '  this.myGlobal.bar = foo;\n' +
+      '}).call(this);';
+    assert.strictEqual(expectedResult, result.code);
+
+    test.done();
   }
 };
 
