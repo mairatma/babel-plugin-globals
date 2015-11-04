@@ -74,6 +74,18 @@ module.exports = {
     test.done();
   },
 
+  testImportWithMultipleExtensionsFilename: function(test) {
+    var babelOptions = getBabelOptions(path.resolve('foo/bar.js'));
+    var result = babel.transform('import foo from "./foo.soy"', babelOptions);
+
+    var expectedResult = '"use strict";\n\n(function () {\n' +
+      '  var foo = this.myGlobal.foo;\n' +
+      '}).call(this);';
+    assert.strictEqual(expectedResult, result.code);
+
+    test.done();
+  },
+
   testNoFilenameExport: function(test) {
     assert.throws(function() {
       babel.transform('export default foo', getBabelOptions());

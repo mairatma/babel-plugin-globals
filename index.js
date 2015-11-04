@@ -72,13 +72,7 @@ module.exports = function(babel) {
   function getFilenameNoExt(filename) {
     if (!filenameNoExtCache) {
       assertFilenameRequired(filename);
-
-      var extension = '.js';
-      filenameNoExtCache = filename;
-      do {
-        filenameNoExtCache = path.basename(filenameNoExtCache, extension);
-        extension = path.extname(filenameNoExtCache);
-      } while (extension !== '');
+      filenameNoExtCache = removeExtensions(filename);
     }
     return filenameNoExtCache;
   }
@@ -106,6 +100,20 @@ module.exports = function(babel) {
     var id = 'this.' + globalName + '.' + moduleName + (name ? '.' + name : '');
 
     return t.identifier(id);
+  }
+
+  /**
+   * Removes all extensions from the given filename.
+   * @param {string} filename
+   * @return {string}
+   */
+  function removeExtensions(filename) {
+    var extension = path.extname(filename);
+    while (extension !== '') {
+      filename = path.basename(filename, extension);
+      extension = path.extname(filename);
+    }
+    return filename;
   }
 
   return new babel.Transformer('globals', {
@@ -139,7 +147,7 @@ module.exports = function(babel) {
       node.specifiers.forEach(function(specifier) {
         var id = getGlobalIdentifier(
           self.state.opts,
-          node.source.value,
+          removeExtensions(node.source.value),
           specifier.imported ? specifier.imported.name : null,
           t.isImportNamespaceSpecifier(specifier)
         );
