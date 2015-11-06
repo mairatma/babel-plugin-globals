@@ -19,13 +19,13 @@ module.exports = function(babel) {
 
   /**
    * Assigns the given declaration to the appropriate global variable.
-   * @param {!Object} options
+   * @param {!Object} state
    * @param {!Array} nodes
    * @param {!Declaration} declaration
    */
-  function assignDeclarationToGlobal(options, nodes, declaration) {
-    var filenameNoExt = getFilenameNoExt(options.filename);
-    var id = getGlobalIdentifier(options, filenameNoExt, declaration.id.name);
+  function assignDeclarationToGlobal(state, nodes, declaration) {
+    var filenameNoExt = getFilenameNoExt(state.file.opts.filename);
+    var id = getGlobalIdentifier(state, filenameNoExt, declaration.id.name);
     assignToGlobal(id, nodes, declaration.id);
   }
 
@@ -79,21 +79,21 @@ module.exports = function(babel) {
 
   /**
    * Gets the global identifier for the given information.
-   * @param {!Object} options Options object passed to babel.
+   * @param {!Object} state This plugin's current state object.
    * @param {string} filePath The path of the module.
    * @param {?string} name The name of the variable being imported or exported from
    *   the module.
    * @param {boolean=} opt_isWildcard If the import or export declaration is using a wildcard.
    * @return {!Specifier}
    */
-  function getGlobalIdentifier(options, filePath, name, opt_isWildcard) {
-    var globalName = options._globalName;
+  function getGlobalIdentifier(state, filePath, name, opt_isWildcard) {
+    var globalName = state.opts.globalName;
     if (name || opt_isWildcard) {
       globalName += 'Named';
     }
 
-    assertFilenameRequired(options.filename);
-    filePath = path.resolve(path.dirname(options.filename), filePath);
+    assertFilenameRequired(state.file.opts.filename);
+    filePath = path.resolve(path.dirname(state.file.opts.filename), filePath);
     var splitPath = filePath.split(path.sep);
     var moduleName = splitPath[splitPath.length - 1];
 
@@ -116,95 +116,100 @@ module.exports = function(babel) {
     return filename;
   }
 
-  return new babel.Transformer('globals', {
-    /**
-     * Wraps the program body in a closure, protecting local variables.
-     * @param {Program} node
-     */
-    Program: function(node) {
-      createdGlobals = {};
-      filenameNoExtCache = null;
+  return {
+    visitor: {
+      /**
+       * Wraps the program body in a closure, protecting local variables.
+       * @param {!NodePath} nodePath
+       */
+      Program: function(nodePath) {
+        createdGlobals = {};
+        filenameNoExtCache = null;
 
-      var contents = node.body;
-      node.body = [t.expressionStatement(t.callExpression(
-        t.memberExpression(
-          t.functionExpression(null, [], t.blockStatement(contents)),
-          t.identifier('call'),
-          false
-        ),
-        [t.identifier('this')]
-      ))];
-      return node;
-    },
+        var node = nodePath.node;
+        var contents = node.body;
+        node.body = [t.expressionStatement(t.callExpression(
+          t.memberExpression(
+            t.functionExpression(null, [], t.blockStatement(contents)),
+            t.identifier('call'),
+            false
+          ),
+          [t.identifier('this')]
+        ))];
+      },
 
-    /**
-     * Replaces import declarations with assignments from global to local variables.
-     * @param {ImportDeclaration} node
-     */
-    ImportDeclaration: function(node) {
-      var self = this;
-      var replacements = [];
-      node.specifiers.forEach(function(specifier) {
-        var id = getGlobalIdentifier(
-          self.state.opts,
-          removeExtensions(node.source.value),
-          specifier.imported ? specifier.imported.name : null,
-          t.isImportNamespaceSpecifier(specifier)
-        );
-        replacements.push(t.variableDeclaration('var', [
-          t.variableDeclarator(specifier.local, id)
-        ]));
-      });
-      return replacements;
-    },
-
-    /**
-     * Removes export all declarations.
-     */
-    ExportAllDeclaration: function() {
-      return [];
-    },
-
-    /**
-     * Replaces default export declarations with assignments to global variables.
-     * @param {ExportDefaultDeclaration} node
-     */
-    ExportDefaultDeclaration: function(node) {
-      var replacements = [];
-      var id = getGlobalIdentifier(this.state.opts, getFilenameNoExt(this.state.opts.filename));
-      assignToGlobal(id, replacements, node.declaration);
-      return replacements;
-    },
-
-    /**
-     * Replaces named export declarations with assignments to global variables.
-     * @param {ExportNamedDeclaration} node
-     */
-    ExportNamedDeclaration: function(node) {
-      var replacements = [];
-      if (node.declaration) {
-        replacements.push(node.declaration);
-        if (t.isVariableDeclaration(node.declaration)) {
-          node.declaration.declarations.forEach(assignDeclarationToGlobal.bind(null, this.state.opts, replacements));
-        } else {
-          assignDeclarationToGlobal(this.state.opts, replacements, node.declaration);
-        }
-      } else {
-        var self = this;
-        node.specifiers.forEach(function(specifier) {
-          var idToAssign = specifier.exported;
-          if (node.source) {
-            var specifierName = specifier.local ? specifier.local.name : null;
-            idToAssign = getGlobalIdentifier(self.state.opts, node.source.value, specifierName);
-          }
-
-          var filenameNoExt = getFilenameNoExt(self.state.opts.filename);
-          var id = getGlobalIdentifier(self.state.opts, filenameNoExt, specifier.exported.name);
-          assignToGlobal(id, replacements, idToAssign);
+      /**
+       * Replaces import declarations with assignments from global to local variables.
+       * @param {!NodePath} nodePath
+       * @param {!Object} state
+       */
+      ImportDeclaration: function(nodePath, state) {
+        var replacements = [];
+        nodePath.node.specifiers.forEach(function(specifier) {
+          var id = getGlobalIdentifier(
+            state,
+            removeExtensions(nodePath.node.source.value),
+            specifier.imported ? specifier.imported.name : null,
+            t.isImportNamespaceSpecifier(specifier)
+          );
+          replacements.push(t.variableDeclaration('var', [
+            t.variableDeclarator(specifier.local, id)
+          ]));
         });
-      }
+        nodePath.replaceWithMultiple(replacements);
+      },
 
-      return replacements;
+      /**
+       * Removes export all declarations.
+       * @param {!NodePath} nodePath
+       */
+      ExportAllDeclaration: function(nodePath) {
+        nodePath.replaceWithMultiple([]);
+      },
+
+      /**
+       * Replaces default export declarations with assignments to global variables.
+       * @param {!NodePath} nodePath
+       * @param {!Object} state
+       */
+      ExportDefaultDeclaration: function(nodePath, state) {
+        var replacements = [];
+        var id = getGlobalIdentifier(state, getFilenameNoExt(state.file.opts.filename));
+        assignToGlobal(id, replacements, nodePath.node.declaration);
+        nodePath.replaceWithMultiple(replacements);
+      },
+
+      /**
+       * Replaces named export declarations with assignments to global variables.
+       * @param {!NodePath} nodePath
+       * @param {!Object} state
+       */
+      ExportNamedDeclaration: function(nodePath, state) {
+        var replacements = [];
+        var node = nodePath.node;
+        if (node.declaration) {
+          replacements.push(node.declaration);
+          if (t.isVariableDeclaration(node.declaration)) {
+            node.declaration.declarations.forEach(assignDeclarationToGlobal.bind(null, state, replacements));
+          } else {
+            assignDeclarationToGlobal(state, replacements, node.declaration);
+          }
+        } else {
+          node.specifiers.forEach(function(specifier) {
+            var idToAssign = specifier.exported;
+            if (node.source) {
+              var specifierName = specifier.local ? specifier.local.name : null;
+              idToAssign = getGlobalIdentifier(state, node.source.value, specifierName);
+            }
+
+            var filenameNoExt = getFilenameNoExt(state.file.opts.filename);
+            var id = getGlobalIdentifier(state, filenameNoExt, specifier.exported.name);
+            assignToGlobal(id, replacements, idToAssign);
+          });
+        }
+
+        nodePath.replaceWithMultiple(replacements);
+      }
     }
-  });
+  };
 };

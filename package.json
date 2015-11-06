@@ -22,16 +22,16 @@
   },
   "keywords": [
     "babel",
+    "babel-plugin",
     "es6",
     "globals",
-    "module",
-    "plugin"
+    "module"
   ],
   "dependencies": {
-    "babel-core": "^5.4.7"
+    "babel-core": "^6.1.2"
   },
   "devDependencies": {
-    "istanbul": "^0.3.14",
+    "istanbul": "^0.4.0",
     "jshint": "^2.7.0",
     "nodeunit": "^0.9.1"
   }
