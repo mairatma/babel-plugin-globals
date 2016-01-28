@@ -226,26 +226,36 @@ module.exports = function(babel) {
        * @param {!NodePath} nodePath
        */
       Program: {
-        enter: function(nodePath) {
+        enter: function(nodePath, state) {
           createdGlobals = {};
           filenameNoExtCache = null;
 
           var body = nodePath.get('body');
-          var hasImports = false;
           var hasNamedExport = false;
           var hasDefaultExport = false;
-          var hasExportAllDeclaration = false;
+          var hasModules = false;
 
           body.forEach(function(path) {
-            if (path.isImportDeclaration()) hasImports = true;
-            if (path.isExportNamedDeclaration()) hasNamedExport = true;
-            if (path.isExportDefaultDeclaration()) hasDefaultExport = true;
-            if (path.isExportAllDeclaration()) hasExportAllDeclaration = true;
+            if (path.isImportDeclaration()) {
+              hasModules = true;
+            }
+            if (path.isExportNamedDeclaration()) {
+              hasNamedExport = true;
+              hasModules = true;
+            }
+            if (path.isExportDefaultDeclaration()) {
+              hasDefaultExport = true;
+              hasModules = true;
+            }
+            if (path.isExportAllDeclaration()) {
+              hasModules = true;
+            }
           });
 
           assertNoMixedExports(hasNamedExport, hasDefaultExport);
 
-          if (!hasImports && !hasNamedExport && !hasDefaultExport && !hasExportAllDeclaration) {
+
+          if (state.opts.transformOnlyModules && !hasModules) {
             return;
           }
 

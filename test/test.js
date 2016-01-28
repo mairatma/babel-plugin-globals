@@ -13,8 +13,15 @@ module.exports = {
     test.done();
   },
 
-  testLeaveUnalteredWhenNoModules: function(test) {
+  testWrapWithClosure: function(test) {
     var result = babel.transform('var a = 2;', getBabelOptions());
+    var expectedResult = '(function () {\n  var a = 2;\n}).call(this);';
+    assert.strictEqual(expectedResult, result.code);
+    test.done();
+  },
+
+  testTransformOnlyModules: function(test) {
+    var result = babel.transform('var a = 2;', getBabelOptions(undefined, true));
     var expectedResult = 'var a = 2;';
     assert.strictEqual(expectedResult, result.code);
     test.done();
@@ -246,12 +253,14 @@ module.exports = {
   }
 };
 
-function getBabelOptions(filename) {
+function getBabelOptions(filename, transformOnlyModules) {
+  transformOnlyModules = !!transformOnlyModules;
   return {
     filename: filename,
     plugins: [
       [globalsPlugin, {
         globalName: 'myGlobal',
+        transformOnlyModules: transformOnlyModules,
         externals: {
           'external-module': 'ExternalModule'
         }
