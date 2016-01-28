@@ -13,7 +13,17 @@ module.exports = function(babel) {
    */
   function assertFilenameRequired(filename) {
     if (filename === 'unknown') {
-      throw new Error('The babel  requires that filename be given');
+      throw new Error('The babel plugin `globals` requires that filename be given');
+    }
+  }
+
+/**
+ * Throws if a module uses both named and default exports
+ * @param  {string} exportType The export type currently being checked
+ */
+  function assertNoMixedExports(hasNamed, hasDefault) {
+    if (hasNamed && hasDefault) {
+      throw new Error('Modules-to-global transpilation does not support mixing named and default exports');
     }
   }
 
@@ -215,20 +225,41 @@ module.exports = function(babel) {
        * Wraps the program body in a closure, protecting local variables.
        * @param {!NodePath} nodePath
        */
-      Program: function(nodePath) {
-        createdGlobals = {};
-        filenameNoExtCache = null;
+      Program: {
+        enter: function(nodePath) {
+          createdGlobals = {};
+          filenameNoExtCache = null;
 
-        var node = nodePath.node;
-        var contents = node.body;
-        node.body = [t.expressionStatement(t.callExpression(
-          t.memberExpression(
-            t.functionExpression(null, [], t.blockStatement(contents)),
-            t.identifier('call'),
-            false
-          ),
-          [t.identifier('this')]
-        ))];
+          var body = nodePath.get('body');
+          var hasImports = false;
+          var hasNamedExport = false;
+          var hasDefaultExport = false;
+          var hasExportAllDeclaration = false;
+
+          body.forEach(function(path) {
+            if (path.isImportDeclaration()) hasImports = true;
+            if (path.isExportNamedDeclaration()) hasNamedExport = true;
+            if (path.isExportDefaultDeclaration()) hasDefaultExport = true;
+            if (path.isExportAllDeclaration()) hasExportAllDeclaration = true;
+          });
+
+          assertNoMixedExports(hasNamedExport, hasDefaultExport);
+
+          if (!hasImports && !hasNamedExport && !hasDefaultExport && !hasExportAllDeclaration) {
+            return;
+          }
+
+          var node = nodePath.node;
+          var contents = node.body;
+          node.body = [t.expressionStatement(t.callExpression(
+            t.memberExpression(
+              t.functionExpression(null, [], t.blockStatement(contents)),
+              t.identifier('call'),
+              false
+            ),
+            [t.identifier('this')]
+          ))];
+        }
       },
 
       /**
@@ -272,6 +303,7 @@ module.exports = function(babel) {
         addNamespaceExpressions(state, fileName, replacements);
         var id = getGlobalIdentifier(state, fileName);
         assignToGlobal(id, replacements, nodePath.node.declaration);
+
         nodePath.replaceWithMultiple(replacements);
       },
 

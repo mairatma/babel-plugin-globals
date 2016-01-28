@@ -13,9 +13,9 @@ module.exports = {
     test.done();
   },
 
-  testWrapWithClosure: function(test) {
+  testLeaveUnalteredWhenNoModules: function(test) {
     var result = babel.transform('var a = 2;', getBabelOptions());
-    var expectedResult = '(function () {\n  var a = 2;\n}).call(this);';
+    var expectedResult = 'var a = 2;';
     assert.strictEqual(expectedResult, result.code);
     test.done();
   },
@@ -216,29 +216,19 @@ module.exports = {
     test.done();
   },
 
-  testMultipleExports: function(test) {
+  testDefaultAndNamedExports: function(test) {
     var babelOptions = getBabelOptions(path.resolve('foo/bar.js'));
-    var result = babel.transform('export default foo; export {bar};', babelOptions);
-
-    var expectedResult = '(function () {\n' +
-      '  this.myGlobal.foo = this.myGlobal.foo || {};\n' +
-      '  this.myGlobal.foo.bar = foo;\n' +
-      '  this.myGlobal.foo.bar.bar = bar;\n' +
-      '}).call(this);';
-    assert.strictEqual(expectedResult, result.code);
+    assert.throws(function() {
+      babel.transform('export default foo; export {bar};', babelOptions);
+    });
     test.done();
   },
 
-  testMultipleExportsOrder: function(test) {
+  testNamedAndDefaultExports: function(test) {
     var babelOptions = getBabelOptions(path.resolve('foo/bar.js'));
-    var result = babel.transform('export {bar}; export default foo;', babelOptions);
-
-    var expectedResult = '(function () {\n' +
-      '  this.myGlobal.foo = this.myGlobal.foo || {};\n' +
-      '  this.myGlobal.foo.bar = foo;\n' +
-      '  this.myGlobal.foo.bar.bar = bar;\n' +
-      '}).call(this);';
-    assert.strictEqual(expectedResult, result.code);
+    assert.throws(function() {
+      babel.transform('export {bar}; export default foo;', babelOptions);
+    });
     test.done();
   },
 
