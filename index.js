@@ -13,7 +13,17 @@ module.exports = function(babel) {
    */
   function assertFilenameRequired(filename) {
     if (filename === 'unknown') {
-      throw new Error('The babel  requires that filename be given');
+      throw new Error('The babel plugin `globals` requires that filename be given');
+    }
+  }
+
+/**
+ * Throws if a module uses both named and default exports
+ * @param  {string} exportType The export type currently being checked
+ */
+  function assertNoMixedExports(hasNamed, hasDefault) {
+    if (hasNamed && hasDefault) {
+      throw new Error('Modules-to-global transpilation does not support mixing named and default exports');
     }
   }
 
@@ -36,32 +46,9 @@ module.exports = function(babel) {
    * @param {!Expression} expression
    */
   function assignToGlobal(id, nodes, expression) {
-    createGlobal(id.name, nodes);
+    if (createdGlobals.hasOwnProperty(id.name)) return;
+    createdGlobals[id.name] = true;
     nodes.push(t.expressionStatement(t.assignmentExpression('=', id, expression)));
-  }
-
-  /**
-   * Creates the global for the given name, if it hasn't been created yet.
-   * @param {string} name Name of the global to create.
-   * @param {!Array} nodes Array to add the global creation assignments to.
-   */
-  function createGlobal(name, nodes) {
-    var keys = name.split('.');
-    var currentGlobal = createdGlobals;
-    var currentGlobalName = 'this.' + keys[1];
-    var id;
-    for (var i = 2; i < keys.length - 1; i++) {
-      currentGlobalName += '.' + keys[i];
-      id = t.identifier(currentGlobalName);
-
-      if (!currentGlobal[keys[i]]) {
-        currentGlobal[keys[i]] = {};
-        nodes.push(t.expressionStatement(
-          t.assignmentExpression('=', id, t.objectExpression([]))
-        ));
-      }
-      currentGlobal = currentGlobal[keys[i]];
-    }
   }
 
   /**
@@ -78,28 +65,144 @@ module.exports = function(babel) {
   }
 
   /**
+   * Path to the module, relative to the current working directory.
+   * @param {!Object} state This plugin's current state object.
+   * @param {string} filePath The path of the module.
+   * @return {string} relative path
+   */
+  function getRootRelativePath(state, filePath) {
+    assertFilenameRequired(state.file.opts.filename);
+    filePath = path.resolve(path.dirname(state.file.opts.filename), filePath);
+    return path.relative(process.cwd(), filePath);
+  }
+
+  /**
+   * Builds a string expression of namespaces, using the 
+   * current working directory as the root
+   * @param {!Object} state This plugin's current state object.
+   * @param {string} filePath The path of the module.
+   * @param {?string} name The name of the variable being imported or exported from the module.
+   * @return {Identifier}
+   */
+  function buildModuleIdentifier(state, filePath, name) {
+    var relativePath = getRootRelativePath(state, filePath);
+    var splitPath = relativePath.split(path.sep);
+
+    var idSegments = ['this', state.opts.globalName];
+    idSegments.push.apply(idSegments, splitPath);
+    if (name) idSegments.push(name);
+
+    return t.identifier(idSegments.join('.'));
+  }
+
+  /**
+   * Builds an expression for an external module on the global scope.
+   * Supports ES6 and CommonJS-style modules by checking for default prop
+   * ex. var ExternalModule = this.ExternalModule["default"] || this.ExternalModule;
+   * @param  {string} moduleName [description]
+   * @return {LogicalExpression} 
+   */
+  function buildExternalIdentifier(moduleName) {
+    var baseExpr = t.memberExpression(
+      t.thisExpression(),
+      t.identifier(moduleName)
+    );
+
+    var defaultPropExpr = t.memberExpression(
+      baseExpr,
+      t.stringLiteral('default'),
+      true
+    );
+
+    return t.logicalExpression('||', defaultPropExpr, baseExpr);
+  }
+
+  /**
+   * Appends namespace initialization statements to the 
+   * replacement nodes array
+   * @param {!Object} state This plugin's current state object.
+   * @param {string} filePath The path of the module.
+   * @param {[type]} filePath [description]
+   */
+  function addNamespaceExpressions(state, filePath, nodes) {
+    var relativePath = getRootRelativePath(state, filePath);
+    var refs = buildNamespaceReferences(relativePath, state.opts.globalName);
+
+    var uncreatedRefs = refs.filter(function(ref) {
+      return !createdGlobals.hasOwnProperty(ref.id);
+    })
+
+    var statements = uncreatedRefs.map(function(ref) {
+      return t.expressionStatement(ref.expr);
+    });
+
+    uncreatedRefs.forEach(function(ref) {
+      createdGlobals[ref.id] = true;
+    });
+
+    nodes.push.apply(nodes, statements);
+  }
+
+  /**
+   * Walks the module file path, translating each directory level 
+   * into a safe namespace initialization expression.
+   * @param {string} modulePath The path to the module.
+   * @return {Object[]}
+   */
+  function buildNamespaceReferences(modulePath, globalName) {
+    var namespacePaths = modulePath.split(path.sep);
+    namespacePaths.pop();
+
+    var base = {
+      id: 'this.' + globalName,
+      expr: t.memberExpression(
+        t.thisExpression(),
+        t.identifier(globalName)
+      )
+    };
+
+    // We need this intermediate step so we still have the previous
+    // MemberExpression, which we're using to recursively build up
+    // the correct MemberExpression for each part of the namespace path
+    var references = namespacePaths.reduce(function(refs, nextPath) {
+      var parentRef = refs[refs.length - 1] || base;
+      var ref = {
+        id: parentRef.id + '.' + nextPath,
+        expr: t.memberExpression(parentRef.expr, t.identifier(nextPath))
+      };
+      return refs.concat(ref);
+    }, []);
+
+    // Map the member expression for each namespace path to an
+    // assignment expressions, e.g.
+    // `this.global.namespacePath = this.global.namespacePath || {};`
+    return references.map(function(ref) {
+      var assignment = t.assignmentExpression(
+        '=',
+        ref.expr,
+        t.logicalExpression('||', ref.expr, t.objectExpression([]))
+      );
+      return { id: ref.id, expr: assignment };
+    });
+  }
+
+  /**
    * Gets the global identifier for the given information.
    * @param {!Object} state This plugin's current state object.
    * @param {string} filePath The path of the module.
    * @param {?string} name The name of the variable being imported or exported from
    *   the module.
    * @param {boolean=} opt_isWildcard If the import or export declaration is using a wildcard.
-   * @return {!Specifier}
+   * @return {Expression}
    */
   function getGlobalIdentifier(state, filePath, name, opt_isWildcard) {
-    var globalName = state.opts.globalName;
-    if (name || opt_isWildcard) {
-      globalName += 'Named';
-    }
+    var isExternalModule = (state.opts.externals && state.opts.externals[filePath]);
 
-    assertFilenameRequired(state.file.opts.filename);
-    filePath = path.resolve(path.dirname(state.file.opts.filename), filePath);
-    var splitPath = filePath.split(path.sep);
-    var moduleName = splitPath[splitPath.length - 1];
+    var globalExpr = (isExternalModule)
+      ? buildExternalIdentifier(state.opts.externals[filePath])
+      : buildModuleIdentifier(state, filePath, name);
 
-    var id = 'this.' + globalName + '.' + moduleName + (name ? '.' + name : '');
-
-    return t.identifier(id);
+    return globalExpr;
   }
 
   /**
@@ -122,20 +225,51 @@ module.exports = function(babel) {
        * Wraps the program body in a closure, protecting local variables.
        * @param {!NodePath} nodePath
        */
-      Program: function(nodePath) {
-        createdGlobals = {};
-        filenameNoExtCache = null;
+      Program: {
+        enter: function(nodePath, state) {
+          createdGlobals = {};
+          filenameNoExtCache = null;
 
-        var node = nodePath.node;
-        var contents = node.body;
-        node.body = [t.expressionStatement(t.callExpression(
-          t.memberExpression(
-            t.functionExpression(null, [], t.blockStatement(contents)),
-            t.identifier('call'),
-            false
-          ),
-          [t.identifier('this')]
-        ))];
+          var body = nodePath.get('body');
+          var hasNamedExport = false;
+          var hasDefaultExport = false;
+          var hasModules = false;
+
+          body.forEach(function(path) {
+            if (path.isImportDeclaration()) {
+              hasModules = true;
+            }
+            if (path.isExportNamedDeclaration()) {
+              hasNamedExport = true;
+              hasModules = true;
+            }
+            if (path.isExportDefaultDeclaration()) {
+              hasDefaultExport = true;
+              hasModules = true;
+            }
+            if (path.isExportAllDeclaration()) {
+              hasModules = true;
+            }
+          });
+
+          assertNoMixedExports(hasNamedExport, hasDefaultExport);
+
+
+          if (state.opts.transformOnlyModules && !hasModules) {
+            return;
+          }
+
+          var node = nodePath.node;
+          var contents = node.body;
+          node.body = [t.expressionStatement(t.callExpression(
+            t.memberExpression(
+              t.functionExpression(null, [], t.blockStatement(contents)),
+              t.identifier('call'),
+              false
+            ),
+            [t.identifier('this')]
+          ))];
+        }
       },
 
       /**
@@ -173,9 +307,13 @@ module.exports = function(babel) {
        * @param {!Object} state
        */
       ExportDefaultDeclaration: function(nodePath, state) {
+        var fileName = getFilenameNoExt(state.file.opts.filename);
         var replacements = [];
-        var id = getGlobalIdentifier(state, getFilenameNoExt(state.file.opts.filename));
+
+        addNamespaceExpressions(state, fileName, replacements);
+        var id = getGlobalIdentifier(state, fileName);
         assignToGlobal(id, replacements, nodePath.node.declaration);
+
         nodePath.replaceWithMultiple(replacements);
       },
 
@@ -185,10 +323,20 @@ module.exports = function(babel) {
        * @param {!Object} state
        */
       ExportNamedDeclaration: function(nodePath, state) {
-        var replacements = [];
+        var fileName = getFilenameNoExt(state.file.opts.filename);
         var node = nodePath.node;
+        var replacements = [];
+
+        // Variable declarations before globals assignments
         if (node.declaration) {
           replacements.push(node.declaration);
+        } 
+
+        addNamespaceExpressions(state, fileName, replacements);
+        var id = getGlobalIdentifier(state, fileName);
+        assignToGlobal(id, replacements, t.objectExpression([]));
+
+        if (node.declaration) {
           if (t.isVariableDeclaration(node.declaration)) {
             node.declaration.declarations.forEach(assignDeclarationToGlobal.bind(null, state, replacements));
           } else {
@@ -202,8 +350,7 @@ module.exports = function(babel) {
               idToAssign = getGlobalIdentifier(state, node.source.value, specifierName);
             }
 
-            var filenameNoExt = getFilenameNoExt(state.file.opts.filename);
-            var id = getGlobalIdentifier(state, filenameNoExt, specifier.exported.name);
+            var id = getGlobalIdentifier(state, fileName, specifier.exported.name);
             assignToGlobal(id, replacements, idToAssign);
           });
         }
