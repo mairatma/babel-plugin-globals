@@ -207,15 +207,38 @@ module.exports = {
     assert.strictEqual(expectedResult, result.code);
 
     test.done();
+  },
+
+  testExportWithGlobalNameFunction: function(test) {
+    var babelOptions = getBabelOptions(
+      path.resolve('foo/bar.js'),
+      function(state, filePath, name) {
+        return 'this.Test.Exports.' + (name ? name : 'default');
+      }
+    );
+    var result = babel.transform(
+      'export default foo;\nexport {foo, bar};',
+      babelOptions
+    );
+
+    var expectedResult = '(function () {\n' +
+      '  this.Test.Exports = {};\n' +
+      '  this.Test.Exports.default = foo;\n' +
+      '  this.Test.Exports.foo = foo;\n' +
+      '  this.Test.Exports.bar = bar;\n' +
+      '}).call(this);';
+    assert.strictEqual(expectedResult, result.code);
+
+    test.done();
   }
 };
 
-function getBabelOptions(filename) {
+function getBabelOptions(filename, globalName) {
   return {
     filename: filename,
     plugins: [
       [globalsPlugin, {
-        globalName: 'myGlobal'
+        globalName: globalName || 'myGlobal'
       }]
     ]
   };
