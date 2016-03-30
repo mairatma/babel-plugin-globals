@@ -87,17 +87,23 @@ module.exports = function(babel) {
    * @return {!Specifier}
    */
   function getGlobalIdentifier(state, filePath, name, opt_isWildcard) {
-    var globalName = state.opts.globalName;
-    if (name || opt_isWildcard) {
-      globalName += 'Named';
-    }
-
     assertFilenameRequired(state.file.opts.filename);
-    filePath = path.resolve(path.dirname(state.file.opts.filename), filePath);
-    var splitPath = filePath.split(path.sep);
-    var moduleName = splitPath[splitPath.length - 1];
+    var globalName = state.opts.globalName;
+    var id;
+    if (typeof globalName === 'function') {
+        id = globalName(state, filePath, name, opt_isWildcard);
+    }
+    else {
+      if (name || opt_isWildcard) {
+        globalName += 'Named';
+      }
 
-    var id = 'this.' + globalName + '.' + moduleName + (name ? '.' + name : '');
+      filePath = path.resolve(path.dirname(state.file.opts.filename), filePath);
+      var splitPath = filePath.split(path.sep);
+      var moduleName = splitPath[splitPath.length - 1];
+
+      id = 'this.' + globalName + '.' + moduleName + (name ? '.' + name : '');
+    }
 
     return t.identifier(id);
   }
