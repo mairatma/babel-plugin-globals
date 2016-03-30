@@ -24,5 +24,8 @@ This plugin requires passing the following plugin/babel options (besides adding 
 ### Plugin options
 - `globalName` **{string}** The name of the global variable that the modules should be exported to.
 
+default exports will be exported as `globalName.filename` whilst named exports will be exported as
+`globalNameNamed.filename.exportname`.
+
 ### Babel options
 - `filename` **{string}** This is an optional existing babel option, but is required for this plugin, since the plugin uses the file name to decide the name of the keys that will be exported in the global variable.
