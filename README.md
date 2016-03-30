@@ -22,14 +22,18 @@ This is a [babel plugin](https://babeljs.io/docs/advanced/plugins/) that convert
 This plugin requires passing the following plugin/babel options (besides adding the plugin):
 
 ### Plugin options
-- `globalName` **{string}** The name of the global variable that the modules should be exported to.
 
-default exports will be exported as `globalName.filename` whilst named exports will be exported as
-`globalNameNamed.filename.exportname`.
+#### `globalName` **{string|!function()}**
 
-`globalName` can also be a function that returns the global ID of each exported function.
-e.g. `(state, filePath, name, isWildcard) => 'this.MyModule.Views' + name ? '.' + name : ''`
+The name of the global variable that the modules should be exported to.
 
+Default exports will be exported as `<globalName>.<filename>` whilst named exports will be exported as
+`<globalName>Named.<fileName>.<exportName>`.
+
+`globalName` can also receive a function that returns the whole variable path for each export (e.g. `(state, filePath, name, isWildcard) => 'this.MyModule.Views' + (name ? '.' + name : '')`)
 
 ### Babel options
-- `filename` **{string}** This is an optional existing babel option, but is required for this plugin, since the plugin uses the file name to decide the name of the keys that will be exported in the global variable.
+
+#### `filename` **{string}**
+
+This is an optional existing babel option, but is required for this plugin, since the plugin uses the file name to decide the name of the keys that will be exported in the global variable.
