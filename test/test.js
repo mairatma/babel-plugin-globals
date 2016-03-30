@@ -124,7 +124,7 @@ module.exports = {
     var result = babel.transform('export {foo, bar}', babelOptions);
 
     var expectedResult = '(function () {\n' +
-      '  this.myGlobalNamed.bar = {};\n' +
+      '  this.myGlobalNamed.bar = this.myGlobalNamed.bar || {};\n' +
       '  this.myGlobalNamed.bar.foo = foo;\n' +
       '  this.myGlobalNamed.bar.bar = bar;\n' +
       '}).call(this);';
@@ -139,7 +139,7 @@ module.exports = {
 
     var expectedResult = '(function () {\n' +
       '  var foo,\n      bar = "foo";\n' +
-      '  this.myGlobalNamed.bar = {};\n' +
+      '  this.myGlobalNamed.bar = this.myGlobalNamed.bar || {};\n' +
       '  this.myGlobalNamed.bar.foo = foo;\n' +
       '  this.myGlobalNamed.bar.bar = bar;\n' +
       '}).call(this);';
@@ -154,7 +154,7 @@ module.exports = {
 
     var expectedResult = '(function () {\n' +
       '  function foo() {}\n' +
-      '  this.myGlobalNamed.bar = {};\n' +
+      '  this.myGlobalNamed.bar = this.myGlobalNamed.bar || {};\n' +
       '  this.myGlobalNamed.bar.foo = foo;\n' +
       '}).call(this);';
     assert.strictEqual(expectedResult, result.code);
@@ -167,7 +167,7 @@ module.exports = {
     var result = babel.transform('export {foo, bar} from "./foo"', babelOptions);
 
     var expectedResult = '(function () {\n' +
-      '  this.myGlobalNamed.bar = {};\n' +
+      '  this.myGlobalNamed.bar = this.myGlobalNamed.bar || {};\n' +
       '  this.myGlobalNamed.bar.foo = this.myGlobalNamed.foo.foo;\n' +
       '  this.myGlobalNamed.bar.bar = this.myGlobalNamed.foo.bar;\n' +
       '}).call(this);';
@@ -190,7 +190,7 @@ module.exports = {
 
     var expectedResult = '(function () {\n' +
       '  this.myGlobal.bar = foo;\n' +
-      '  this.myGlobalNamed.bar = {};\n' +
+      '  this.myGlobalNamed.bar = this.myGlobalNamed.bar || {};\n' +
       '  this.myGlobalNamed.bar.bar = bar;\n' +
       '}).call(this);';
     assert.strictEqual(expectedResult, result.code);
@@ -222,7 +222,7 @@ module.exports = {
     );
 
     var expectedResult = '(function () {\n' +
-      '  this.Test.Exports = {};\n' +
+      '  this.Test.Exports = this.Test.Exports || {};\n' +
       '  this.Test.Exports.default = foo;\n' +
       '  this.Test.Exports.foo = foo;\n' +
       '  this.Test.Exports.bar = bar;\n' +

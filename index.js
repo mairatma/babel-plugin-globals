@@ -57,7 +57,11 @@ module.exports = function(babel) {
       if (!currentGlobal[keys[i]]) {
         currentGlobal[keys[i]] = {};
         nodes.push(t.expressionStatement(
-          t.assignmentExpression('=', id, t.objectExpression([]))
+          t.assignmentExpression('=', id, t.logicalExpression(
+            '||',
+            id,
+            t.objectExpression([])
+          ))
         ));
       }
       currentGlobal = currentGlobal[keys[i]];
