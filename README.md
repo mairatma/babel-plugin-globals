@@ -27,5 +27,9 @@ This plugin requires passing the following plugin/babel options (besides adding 
 default exports will be exported as `globalName.filename` whilst named exports will be exported as
 `globalNameNamed.filename.exportname`.
 
+`globalName` can also be a function that returns the global ID of each exported function.
+e.g. `(state, filePath, name, isWildcard) => 'this.MyModule.Views' + name ? '.' + name : ''`
+
+
 ### Babel options
 - `filename` **{string}** This is an optional existing babel option, but is required for this plugin, since the plugin uses the file name to decide the name of the keys that will be exported in the global variable.
