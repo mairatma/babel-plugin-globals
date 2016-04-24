@@ -185,7 +185,13 @@ module.exports = function(babel) {
       ExportDefaultDeclaration: function(nodePath, state) {
         var replacements = [];
         var id = getGlobalIdentifier(state, getFilenameNoExt(state.file.opts.filename));
-        assignToGlobal(id, replacements, nodePath.node.declaration);
+        var node = nodePath.node;
+        var expression = node.declaration;
+        if (t.isFunctionDeclaration(node.declaration) || t.isClassDeclaration(node.declaration)) {
+          replacements.push(node.declaration);
+          expression = node.declaration.id;
+        }
+        assignToGlobal(id, replacements, expression);
         nodePath.replaceWithMultiple(replacements);
       },
 
