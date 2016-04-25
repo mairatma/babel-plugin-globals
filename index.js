@@ -37,6 +37,9 @@ module.exports = function(babel) {
    */
   function assignToGlobal(id, nodes, expression) {
     createGlobal(id.name, nodes);
+    if (!t.isExpression(expression)) {
+      expression = t.toExpression(expression);
+    }
     nodes.push(t.expressionStatement(t.assignmentExpression('=', id, expression)));
   }
 
@@ -185,11 +188,11 @@ module.exports = function(babel) {
       ExportDefaultDeclaration: function(nodePath, state) {
         var replacements = [];
         var id = getGlobalIdentifier(state, getFilenameNoExt(state.file.opts.filename));
-        var node = nodePath.node;
-        var expression = node.declaration;
-        if (t.isFunctionDeclaration(node.declaration) || t.isClassDeclaration(node.declaration)) {
-          replacements.push(node.declaration);
-          expression = node.declaration.id;
+        var expression = nodePath.node.declaration;
+        if (expression.id &&
+          (t.isFunctionDeclaration(expression) || t.isClassDeclaration(expression))) {
+          replacements.push(expression);
+          expression = expression.id;
         }
         assignToGlobal(id, replacements, expression);
         nodePath.replaceWithMultiple(replacements);

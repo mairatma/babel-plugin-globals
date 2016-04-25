@@ -132,6 +132,18 @@ module.exports = {
     test.done();
   },
 
+  testDefaultAnonymousFunctionDeclarationExport: function(test) {
+    var babelOptions = getBabelOptions(path.resolve('foo/bar.js'));
+    var result = babel.transform('export default function() {}', babelOptions);
+
+    var expectedResult = '(function () {\n' +
+      '  this.myGlobal.bar = function () {};\n' +
+      '}).call(this);';
+    assert.strictEqual(expectedResult, result.code);
+
+    test.done();
+  },
+
   testDefaultClassDeclarationExport: function(test) {
     var babelOptions = getBabelOptions(path.resolve('foo/bar.js'));
     var result = babel.transform('export default class Foo {}', babelOptions);
@@ -139,6 +151,18 @@ module.exports = {
     var expectedResult = '(function () {\n' +
       '  class Foo {}\n' +
       '  this.myGlobal.bar = Foo;\n' +
+      '}).call(this);';
+    assert.strictEqual(expectedResult, result.code);
+
+    test.done();
+  },
+
+  testDefaultAnonymousClassDeclarationExport: function(test) {
+    var babelOptions = getBabelOptions(path.resolve('foo/bar.js'));
+    var result = babel.transform('export default class {}', babelOptions);
+
+    var expectedResult = '(function () {\n' +
+      '  this.myGlobal.bar = class {};\n' +
       '}).call(this);';
     assert.strictEqual(expectedResult, result.code);
 
