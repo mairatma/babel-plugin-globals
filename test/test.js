@@ -196,6 +196,19 @@ module.exports = {
     test.done();
   },
 
+  testNamedAsExport: function(test) {
+    var babelOptions = getBabelOptions(path.resolve('foo/bar.js'));
+    var result = babel.transform('export {foo as baz}', babelOptions);
+
+    var expectedResult = '(function () {\n' +
+      '  this["myGlobalNamed"]["bar"] = this["myGlobalNamed"]["bar"] || {};\n' +
+      '  this["myGlobalNamed"]["bar"]["baz"] = foo;\n' +
+      '}).call(this);';
+    assert.strictEqual(expectedResult, result.code);
+
+    test.done();
+  },
+
   testNamedAssignmentExport: function(test) {
     var babelOptions = getBabelOptions(path.resolve('foo/bar.js'));
     var result = babel.transform('export var foo, bar = "foo"', babelOptions);

@@ -220,7 +220,7 @@ module.exports = function(babel) {
           }
         } else {
           node.specifiers.forEach(function(specifier) {
-            var exprToAssign = specifier.exported;
+            var exprToAssign = specifier.local;
             if (node.source) {
               var specifierName = specifier.local ? specifier.local.name : null;
               exprToAssign = getGlobalExpression(state, node.source.value, specifierName);
