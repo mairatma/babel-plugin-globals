@@ -88,6 +88,18 @@ module.exports = {
     test.done();
   },
 
+  testImportWithHifensInFilename: function(test) {
+    var babelOptions = getBabelOptions(path.resolve('foo/bar.js'));
+    var result = babel.transform('import foo from "./foo-bar"', babelOptions);
+
+    var expectedResult = '(function () {\n' +
+      '  var foo = this["myGlobal"]["foo-bar"];\n' +
+      '}).call(this);';
+    assert.strictEqual(expectedResult, result.code);
+
+    test.done();
+  },
+
   testNoFilenameExport: function(test) {
     assert.throws(function() {
       babel.transform('export default foo', getBabelOptions());
