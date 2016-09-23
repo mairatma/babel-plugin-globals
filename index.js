@@ -48,7 +48,7 @@ module.exports = function(babel) {
    * @param {!MemberExpression} expr
    * @param {!Array} nodes Array to add the global creation assignments to.
    */
-  function createGlobal(expr, nodes) {
+  function createGlobal(expr, nodes, opt_namedPartial) {
     var exprs = [];
     while (t.isMemberExpression(expr)) {
       exprs.push(expr);
@@ -56,7 +56,7 @@ module.exports = function(babel) {
     }
 
     var currGlobalName = '';
-    for (var i = exprs.length - 2; i > 0; i--) {
+    for (var i = exprs.length - 2; opt_namedPartial ? i >= 0 : i > 0; i--) {
       currGlobalName += '.' + exprs[i].property.value;
       if (!createdGlobals[currGlobalName]) {
         createdGlobals[currGlobalName] = true;
@@ -109,7 +109,7 @@ module.exports = function(babel) {
       var splitPath = filePath.split(path.sep);
       var moduleName = splitPath[splitPath.length - 1];
 
-      id = 'this.' + globalName + '.' + moduleName + (name ? '.' + name : '');
+      id = 'this.' + globalName + '.' + moduleName + (name && name !== true ? '.' + name : '');
     }
 
     var parts = id.split('.');
@@ -178,11 +178,40 @@ module.exports = function(babel) {
       },
 
       /**
-       * Removes export all declarations.
+       * Replaces export all declarations with code that copies all named
+       * exports from the imported file into the named exports of the current
+       * file. The final generated code will be something like this:
+       *     Object.keys(importedGlobal).forEach(function (key) {
+       *         currGlobal[key] = importedGlobal[key];
+       *     });
        * @param {!NodePath} nodePath
        */
-      ExportAllDeclaration: function(nodePath) {
-        nodePath.replaceWithMultiple([]);
+      ExportAllDeclaration: function(nodePath, state) {
+        var replacements = [];
+        var expr = getGlobalExpression(state, getFilenameNoExt(state.file.opts.filename), true);
+        createGlobal(expr, replacements, true);
+        var originalGlobal = getGlobalExpression(state, nodePath.node.source.value, true);
+        replacements.push(t.expressionStatement(t.callExpression(
+          t.memberExpression(
+            t.callExpression(
+              t.memberExpression(t.identifier('Object'), t.identifier('keys')),
+              [originalGlobal]
+            ),
+            t.identifier('forEach')
+          ),
+          [t.functionExpression(
+            null,
+            [t.identifier('key')],
+            t.blockStatement(
+              [t.expressionStatement(t.assignmentExpression(
+                '=',
+                t.memberExpression(expr, t.identifier('key'), true),
+                t.memberExpression(originalGlobal, t.identifier('key'), true)
+              ))]
+            )
+          )]
+        )));
+        nodePath.replaceWithMultiple(replacements);
       },
 
       /**

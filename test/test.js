@@ -254,8 +254,12 @@ module.exports = {
   testWildcardSourceExport: function(test) {
     var babelOptions = getBabelOptions(path.resolve('foo/bar.js'));
     var result = babel.transform('export * from "foo"', babelOptions);
-
-    var expectedResult = '(function () {}).call(this);';
+    var expectedResult = '(function () {\n' +
+      '  this["myGlobalNamed"]["bar"] = this["myGlobalNamed"]["bar"] || {};\n' +
+      '  Object.keys(this["myGlobalNamed"]["foo"]).forEach(function (key) {\n' +
+      '    this["myGlobalNamed"]["bar"][key] = this["myGlobalNamed"]["foo"][key];\n' +
+      '  });\n' +
+      '}).call(this);';
     assert.strictEqual(expectedResult, result.code);
     test.done();
   },
