@@ -18,6 +18,9 @@ This is a [babel plugin](https://babeljs.io/docs/advanced/plugins/) that convert
 // Modules will be available at this.myGlobal.
 ```
 
+Import statements will be removed if the imported file is not a relative or absolute path.
+This allows for CDN hosted libraries to be explicitly imported in code whilst still retaining the globals import system.
+
 ## API
 This plugin requires passing the following plugin/babel options (besides adding the plugin):
 
