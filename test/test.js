@@ -310,6 +310,14 @@ module.exports = {
     assert.strictEqual(expectedResult, result.code);
 
     test.done();
+  },
+
+  testImportWithNonFilePath: function(test) {
+    var result = babel.transform('import foo from "bar"', getBabelOptions());
+    var expected = '(function () {}).call(this);';
+    assert.strictEqual(expected, result.code);
+
+    test.done();
   }
 };
 

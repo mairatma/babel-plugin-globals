@@ -163,17 +163,20 @@ module.exports = function(babel) {
        */
       ImportDeclaration: function(nodePath, state) {
         var replacements = [];
-        nodePath.node.specifiers.forEach(function(specifier) {
-          var expr = getGlobalExpression(
-            state,
-            removeExtensions(nodePath.node.source.value),
-            specifier.imported ? specifier.imported.name : null,
-            t.isImportNamespaceSpecifier(specifier)
-          );
-          replacements.push(t.variableDeclaration('var', [
-            t.variableDeclarator(specifier.local, expr)
-          ]));
-        });
+
+        if ( nodePath.node.source.value.match(/^[\./]/) ) {
+          nodePath.node.specifiers.forEach(function(specifier) {
+            var expr = getGlobalExpression(
+              state,
+              removeExtensions(nodePath.node.source.value),
+              specifier.imported ? specifier.imported.name : null,
+              t.isImportNamespaceSpecifier(specifier)
+            );
+            replacements.push(t.variableDeclaration('var', [
+              t.variableDeclarator(specifier.local, expr)
+            ]));
+          });
+        }
         nodePath.replaceWithMultiple(replacements);
       },
 
